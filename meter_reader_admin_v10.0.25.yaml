@@ -1,0 +1,519 @@
+# =============================================================================
+# アナログメーター読取 管理者向けアルゴリズム設定
+# =============================================================================
+# このファイルは、ハブ選択・針線分評価・角度補正・救済処理で使用する
+# 判定しきい値を管理します。
+#
+# 注意:
+# - 通常ユーザー向けのメータープロファイル設定とは分離して管理してください。
+# - 値を変更すると、特定画像の改善と引き換えに別画像の精度が低下する可能性があります。
+# - 変更後は、複数の針角度・撮影距離・照明条件で回帰確認してください。
+# - 比率は原則として 0.0～1.0、角度は degree、距離は pixel です。
+# =============================================================================
+
+admin_settings:
+  # 管理者設定ファイルの構造バージョン。
+  # プログラム側の対応バージョンと一致させます。
+  schema_version: 1
+
+  # 通常ユーザーによる編集を許可するか。
+  # false のまま運用し、管理者のみ変更してください。
+  allow_user_edit: false
+
+# -----------------------------------------------------------------------------
+# GUI表示のデフォルト値
+# -----------------------------------------------------------------------------
+# 読取精度や補正ロジックには影響しません。OpenCV画面の表示サイズだけを管理します。
+display_defaults:
+  meter_window:
+    # trueの場合、OpenCVのmeterウィンドウ初期サイズを明示的に指定します。
+    force_initial_size: true
+    initial_width_px: 600
+    initial_height_px: 600
+
+  result_window:
+    # trueの場合、縦横比を保ったまま下記最大サイズ内へ縮小表示します。
+    fit_to_max_size: true
+
+    # result表示画像の最大サイズ。保存されるresult.jpgの解像度は変更しません。
+    max_width_px: 1280
+    max_height_px: 800
+
+    # WSL/VcXsrv/OpenCVで初期ウィンドウが小さくなる場合に、
+    # 実際のWindows上のウィンドウサイズを明示的に指定します。
+    force_initial_size: true
+    initial_width_px: 1200
+    initial_height_px: 800
+
+# -----------------------------------------------------------------------------
+# YOLO重複検出の後処理統合
+# -----------------------------------------------------------------------------
+# 同じメーターに対して、文字盤寄りの小さい枠とベゼル全体を含む大きい枠が
+# 同時に検出された場合に、同一物体かを判定して品質の高いCropだけを残します。
+# 「常に大きい枠を採用」ではなく、重なり・中心距離・円検出品質を総合評価します。
+yolo_duplicate_merge:
+  # 重複統合処理を有効にするか。
+  enabled: true
+
+  grouping:
+    # 2枠のIoUがこの値以上なら、重複候補とみなします。
+    # 大小差がある入れ子枠ではIoUが低めになるため、包含率条件も併用します。
+    iou_threshold: 0.55
+
+    # 小さい枠の面積のうち、大きい枠と重なる割合。
+    # 0.85は小さい枠の85%以上が大きい枠内にあることを意味します。
+    smaller_containment_threshold: 0.85
+
+    # 2枠の中心距離を大きい枠の短辺で割った値の上限。
+    # 中心が離れた隣接メーターを誤統合しないための条件です。
+    center_distance_ratio_max: 0.15
+
+    # 小さい枠面積／大きい枠面積の下限。
+    # 極端に小さい別物体を大きい枠へ統合しないための条件です。
+    area_ratio_min: 0.30
+
+  selection:
+    # YOLO信頼度をCrop品質スコアへ加える重み。
+    yolo_confidence_weight: 100.0
+
+    # 文字盤外周円のエッジ支持率をCrop品質スコアへ加える重み。
+    dial_edge_weight: 80.0
+
+    # ベゼル・文字盤ペアスコアをCrop品質スコアへ加える重み。
+    pair_score_weight: 0.05
+
+    # 検出半径比とプロファイル期待値との差に対する減点重み。
+    radius_ratio_error_weight: 100.0
+
+    # Cropが元画像端で切れている場合の減点。
+    image_edge_cut_penalty: 80.0
+
+    # メーターがCrop内で小さすぎ、背景を過剰に含む場合の減点上限。
+    oversized_crop_penalty: 40.0
+
+    # グループ内1位と2位の品質差がこの値以上なら、1位だけを残します。
+    # 差が小さい場合は誤統合防止のため曖昧扱いにします。
+    minimum_quality_margin: 20.0
+
+    # 文字盤直径／Crop短辺の最低目安。
+    # これより小さい場合は、Cropが広すぎるとして段階的に減点します。
+    minimum_dial_fill_ratio: 0.55
+
+  ambiguity:
+    # 品質差がminimum_quality_margin未満の場合、両方を残すか。
+    # 安全側の運用としてtrueを推奨します。
+    keep_both_when_uncertain: true
+
+
+# -----------------------------------------------------------------------------
+# 目盛範囲全体の針軸再探索
+# -----------------------------------------------------------------------------
+# 初期軸が大きく外れ、通常の±6°補正や±18°広域探索では正しい軸へ届かない、
+# 極低解像度かつ極低信頼の画像だけを対象にします。通常画像には発動しません。
+full_scale_axis_rescue:
+  # 目盛範囲全体の再探索を有効にするか。
+  enabled: true
+
+  trigger:
+    # 文字盤外周円が無効な場合だけ発動するか。
+    require_outer_invalid: true
+
+    # 対象とする最大文字盤外周半径。小さく写ったメーターに限定します。
+    outer_radius_max_px: 140
+
+    # 局所中心線のcoverageがこの値未満の場合だけ対象にします。
+    coverage_max: 0.50
+
+    # 針形状スコアがこの値未満の場合だけ対象にします。
+    shape_score_max: 85.0
+
+    # 針先が中間部より不自然に太いことを必須にするか。
+    require_suspicious_tip_widening: true
+
+    # 局所探索端への張り付きを必須にするか。今回のような大外れではfalseを推奨します。
+    require_local_search_edge_hit: false
+
+    # coverageは中程度でも、低解像度で軸形状が不自然な場合の代替発動条件です。
+    # 通常のcoverage条件とはOR関係で、以下をすべて満たした場合だけ全範囲探索します。
+    geometry_fallback:
+      # 代替トリガーを有効にするか。
+      enabled: true
+
+      # 代替トリガーで許容する最大coverage。
+      coverage_max: 0.80
+
+      # 局所中心線候補の軸オフセットがこの値以上なら不自然と判断します。
+      minimum_centerline_offset_px: 5.0
+
+      # 針先幅÷中間幅がこの値以上なら、誤軸の可能性が高いと判断します。
+      minimum_tip_mid_width_ratio: 2.0
+
+      # 外周円が無効な場合だけ代替トリガーを許可するか。
+      require_outer_invalid: true
+
+      # 代替トリガーを許可する最大文字盤外周半径。
+      outer_radius_max_px: 140
+
+  search:
+    # プロファイルの有効目盛角度範囲だけを探索するか。
+    use_effective_scale_range: true
+
+    # 全範囲探索の角度刻み。
+    step_deg: 0.5
+
+  acceptance:
+    # 新候補スコアが旧候補の何倍以上必要か。
+    minimum_score_ratio: 1.80
+
+    # 新候補が旧候補を上回るために必要な最小絶対スコア差。
+    minimum_score_difference: 120.0
+
+    # 新候補に必要な最低coverage。
+    minimum_coverage: 0.70
+
+    # 旧候補から必要なcoverage改善量。
+    minimum_coverage_improvement: 0.25
+
+    # 新候補で許容する中心軸オフセットの最大値。
+    maximum_axis_offset_px: 3.0
+
+    # 長針・カウンターウェイト期待位置の支持を必須にするか。
+    require_profile_axis_support: true
+
+    # 有効目盛範囲内の角度であることを必須にするか。
+    require_scale_range: true
+
+  # geometry_fallbackで全範囲探索した場合だけ使用する専用採用条件です。
+  # 通常の低coverage救済には適用せず、他画像への影響を限定します。
+  geometry_fallback_acceptance:
+    # 専用採用判定を有効にするか。
+    enabled: true
+
+    # 新候補スコアが旧候補の何倍以上必要か。
+    minimum_score_ratio: 1.50
+
+    # 新候補が旧候補を上回るために必要な最小絶対スコア差。
+    minimum_score_difference: 150.0
+
+    # 新候補に必要な最低coverage。
+    minimum_coverage: 0.88
+
+    # 旧候補から必要なcoverage改善量。
+    minimum_coverage_improvement: 0.20
+
+    # 上位候補群で許容する最大角度幅。候補が同一軸へ集中していることを確認します。
+    maximum_top_angle_spread_deg: 2.0
+
+    # 候補針先位置の目盛進行比率の許容下限。
+    minimum_scale_ratio: 0.60
+
+    # 候補針先位置の目盛進行比率の許容上限。
+    maximum_scale_ratio: 0.80
+
+    # 外周円が無効な場合だけ専用採用を許可するか。
+    require_outer_invalid: true
+
+    # 専用採用を許可する最大文字盤外周半径。
+    outer_radius_max_px: 140
+
+    # offsetが未計算センチネルの場合、他条件がすべて成立すれば許可するか。
+    allow_unavailable_offset: true
+
+    # 低解像度で通常の軸支持判定が不能な場合、候補集中性などで代替するか。
+    allow_lowres_axis_support_substitution: true
+
+  # 極低解像度で全範囲探索候補のoffsetが計算できない場合に限り、
+  # 上位候補の角度集中性・coverage・スコア倍率・目盛位置から代替判定します。
+  # 通常画像では使用されません。
+  low_resolution_fallback:
+    # 代替判定を有効にするか。
+    enabled: true
+
+    # offsetがこの値以上なら実測値ではなく未計算センチネルとみなします。
+    offset_unavailable_threshold: 900.0
+
+    # 代替判定に必要な新候補／旧候補の最低スコア倍率。
+    minimum_score_ratio: 2.50
+
+    # 代替判定に必要な最低coverage。
+    minimum_coverage: 0.90
+
+    # 角度集中性の判定に使う上位候補数。
+    top_candidate_count: 3
+
+    # 上位候補群で許容する最大角度幅。
+    maximum_top_angle_spread_deg: 2.0
+
+    # 候補針先位置の目盛進行比率の許容下限。
+    minimum_scale_ratio: 0.35
+
+    # 候補針先位置の目盛進行比率の許容上限。
+    maximum_scale_ratio: 0.75
+
+    # 外周円が無効な場合だけ代替判定を許可するか。
+    require_outer_invalid: true
+
+    # 代替判定を許可する最大文字盤外周半径。
+    outer_radius_max_px: 140
+
+broad_axis_rescue:
+  # 通常の局所探索が失敗した低信頼画像に対し、広い角度範囲を再探索する機能。
+  enabled: true
+
+  trigger:
+    # 文字盤外周円が有効に検出できなかった場合だけ救済を発動するか。
+    require_outer_invalid: true
+
+    # 広域再探索の対象とする最大文字盤外周半径。
+    # 小さく写ったメーターだけに限定するための条件です。
+    outer_radius_max_px: 140
+
+    # 局所中心線の coverage がこの値以下のとき、広域再探索の対象にします。
+    coverage_max: 0.85
+
+    # 局所探索の最良候補が探索範囲端に張り付いたことを必須にするか。
+    require_local_search_edge_hit: true
+
+    # 針先が中間部より不自然に太いことを発動条件に含めるか。
+    require_suspicious_tip_widening: true
+
+    # 針先幅が中間幅の何倍以上なら、不自然な先端拡大とみなすか。
+    tip_widening_ratio: 1.75
+
+    # 倍率条件に加えて要求する針先幅と中間幅の最小差分 pixel。
+    tip_widening_add_px: 8.0
+
+  search:
+    # 広域再探索する角度範囲。
+    # 基準角度を中心に、最大でこの角度まで探索します。
+    range_deg: 18.0
+
+    # 広域探索時の角度刻み。
+    step_deg: 0.5
+
+    # 現候補と別軸とみなすために必要な最小角度差。
+    minimum_axis_separation_deg: 6.5
+
+    # 広域救済候補として許容する最大角度差。
+    maximum_axis_separation_deg: 18.1
+
+  acceptance:
+    # 広域候補スコアが局所候補スコアの何倍以上必要か。
+    # 比率条件または下記の絶対差条件を使って、明確な改善を確認します。
+    minimum_score_ratio: 1.20
+
+    # 広域候補が局所候補を上回るために必要な最小絶対スコア差。
+    minimum_score_difference: 55.0
+
+    # 広域候補の coverage が局所候補より改善していると判定する最小差。
+    minimum_coverage_improvement: 0.08
+
+    # 広域候補の中心軸オフセットが改善していると判定する最小 pixel 差。
+    minimum_offset_improvement_px: 1.5
+
+    # 長針・カウンターウェイトの期待位置にマスク証拠があることを
+    # 通常の採用条件として必須にするか。
+    require_profile_axis_support: true
+
+  low_resolution_widening_override:
+    # 316相当。外周円が無効な極低解像度で、先端肥大・探索端到達・大きな局所補正が
+    # 同時に発生した場合のみ、coverage 0.95まで広域軸探索を許可します。
+    enabled: true
+    require_outer_invalid: true
+    outer_radius_max_px: 140
+    coverage_max: 0.95
+    require_suspicious_tip_widening: true
+    minimum_tip_mid_width_ratio: 2.0
+    require_local_search_edge_hit: true
+    minimum_local_refine_delta_deg: 3.0
+
+    acceptance:
+      minimum_score_ratio: 1.08
+      minimum_score_difference: 20.0
+      # 低解像度では1～2pxの量子化誤差が相対的に大きいため、絶対値と外周半径比の大きい方を使用。
+      maximum_axis_offset_px: 10.0
+      maximum_axis_offset_outer_ratio: 0.09
+
+      # 低解像度専用判定では通常解像度向けの幾何改善・プロファイル軸支持を必須にしない。
+      bypass_normal_geometry_clear: true
+      bypass_normal_axis_support: true
+
+      require_scale_range: true
+      require_profile_length_support: true
+      top_candidate_count: 3
+      maximum_top_angle_spread_deg: 2.0
+
+  extreme_low_resolution_override:
+    # 極低解像度時に限り、通常のプロファイル軸支持条件を補助条件へ下げる救済。
+    enabled: true
+
+    # 文字盤外周円が無効であることを必須にするか。
+    require_outer_invalid: true
+
+    # 極低解像度救済を適用する最大文字盤外周半径。
+    outer_radius_max_px: 140
+
+    # 極低解像度救済を適用する最大 coverage。
+    coverage_max: 0.80
+
+    # 局所探索の最良角度が探索範囲端に到達していることを必須にするか。
+    require_local_search_edge_hit: true
+
+    # 軸支持条件を緩和して採用するために必要な、広域候補と局所候補の
+    # 最小スコア倍率。1.60 は 1.6 倍以上を意味します。
+    minimum_score_ratio: 1.60
+
+    # coverage や中心軸オフセットなどの幾何的改善を必須にするか。
+    require_geometry_clear: true
+
+    # 候補角度がメーターの有効目盛範囲内にあることを必須にするか。
+    require_scale_range: true
+
+# -----------------------------------------------------------------------------
+# 両方向が目盛範囲内にある場合の長針・短針極性判定
+# -----------------------------------------------------------------------------
+# 針軸の両方向がどちらも有効目盛範囲内に入る場合、長針側と短針側を
+# プロファイル登録済みの長さで判定します。低解像度画像で180度反転する
+# 誤りを防ぐための限定ガードです。
+dual_scale_direction_guard:
+  # 極性ガードを有効にするか。
+  enabled: true
+
+  trigger:
+    # 針軸の両方向が有効目盛範囲内の場合だけ発動するか。
+    require_both_directions_in_scale: true
+
+    # プロファイルに長針長・短針長が登録されていることを必須にするか。
+    require_length_profile_available: true
+
+  acceptance:
+    # 2方向の長針・短針割当スコア差を、優位側スコアで割った最低値。
+    minimum_length_match_advantage: 0.12
+
+    # 登録された長針長／短針長の最低比率。
+    minimum_long_short_ratio: 1.35
+
+    # 2方向の割当スコア差の最低値。
+    minimum_orientation_margin: 35.0
+
+    # 長針候補側の実測長が短針側より長いことを必須にするか。
+    prefer_longer_endpoint: true
+
+    # 長さ判定が拮抗した場合に遠端幅を補助評価へ使用するか。
+    use_far_end_width_tiebreaker: true
+
+    # 観測した長針長が、プロファイル期待長の何倍以上であることを必須にするか。
+    minimum_tip_length_ratio_to_expected: 0.70
+
+    # 観測した短針長が、プロファイル期待長の何倍以上であることを必須にするか。
+    minimum_tail_length_ratio_to_expected: 0.55
+
+    # 観測長短比とプロファイル長短比の相対誤差上限。
+    maximum_observed_ratio_relative_error: 0.45
+
+    # 長針候補の遠端が中間部より不自然に太い場合、極性ロックを拒否するか。
+    reject_suspicious_tip_widening: true
+
+    # 長針候補の tip_width / mid_width の許容上限。
+    maximum_tip_mid_width_ratio: 1.50
+
+    # 低解像度で短針側が文字・目盛線と結合して太く見えた場合の反転救済。
+    low_resolution_widening_reverse_rescue:
+      enabled: true
+      require_outer_invalid: true
+      outer_radius_max_px: 140
+      minimum_wrong_side_tip_mid_width_ratio: 1.80
+      maximum_opposite_tip_mid_width_ratio: 1.50
+
+    # 極性確定後の中心線補正で許容する最大角度差。
+    # 90度を超える補正は180度反転とみなし、補正前方向へ戻します。
+    maximum_refine_flip_deg: 90.0
+
+  # 低解像度かつ極性ロック済みの場合に、曖昧な中心線補正を抑止します。
+  low_resolution_refine_guard:
+    # 本ガードを有効にするか。
+    enabled: true
+
+    # 両方向極性ガードで長針方向が確定していることを必須にします。
+    require_direction_locked: true
+
+    # 外周円が無効な低信頼画像だけを対象にします。
+    require_outer_invalid: true
+
+    # 対象とする文字盤外周半径の上限。
+    outer_radius_max_px: 140
+
+    # 対象とする中心線候補coverageの上限。
+    coverage_max: 0.85
+
+    # 元の線分角度からこの値を超えて動く補正を再評価します。
+    maximum_refine_delta_deg: 1.5
+
+    # 上位1位と2位の中心線スコア差がこの値未満ならピークが平坦と判定します。
+    minimum_score_margin: 5.0
+
+
+# -----------------------------------------------------------------------------
+# 針先幅だけで棄却された線分候補の限定復活
+# -----------------------------------------------------------------------------
+# 298相当。外周円が正常な中解像度画像で、正しい線分候補が文字・目盛線との接触により
+# 軽微なtip-width超過だけで棄却され、ray候補が大きく外れた場合に限り線分を復活します。
+line_width_rejection_rescue:
+  enabled: true
+
+  trigger:
+    require_outer_valid: true
+    outer_radius_min_px: 180
+    outer_radius_max_px: 400
+    require_line_in_scale: true
+    require_opposite_out_of_scale: true
+    require_profile_length_match: true
+    minimum_shape_score: 75.0
+    rejection_reason_only_tip_width: true
+    minimum_line_ray_difference_deg: 8.0
+    maximum_line_ray_difference_deg: 25.0
+    maximum_tip_width_excess_ratio: 1.30
+
+  acceptance:
+    maximum_centerline_line_difference_deg: 2.0
+
+# -----------------------------------------------------------------------------
+# レイ候補と線分候補の食い違い救済
+# -----------------------------------------------------------------------------
+# 中解像度画像で、正しい線分候補が文字・目盛との接触による軽微な先端幅超過だけで
+# 棄却された場合に限定して復活させます。通常画像・高解像度・極低解像度には発動しません。
+ray_line_disagreement_rescue:
+  enabled: true
+
+  trigger:
+    # レイ候補と線分候補の角度差がこの値以上の場合だけ再評価します。
+    minimum_angle_difference_deg: 3.0
+
+    # 外周円が正常に検出できた画像だけを対象にします。
+    require_outer_valid: true
+
+    # 対象とする文字盤外周半径の範囲。298相当の中解像度に限定します。
+    outer_radius_min_px: 180
+    outer_radius_max_px: 400
+
+    # 線分方向が有効目盛範囲内であることを必須にします。
+    require_line_in_scale: true
+
+    # プロファイルの長針・短針長と整合することを必須にします。
+    require_length_match: true
+
+    # 線分候補に必要な最低針形状スコア。
+    minimum_shape_score: 75.0
+
+    # 実測先端幅／危険先端幅上限の最大比。軽微な超過だけを許容します。
+    maximum_tip_width_excess_ratio: 1.30
+
+  acceptance:
+    # 線分中心線角度と元線分角度の差の上限。軸方向の安定性を確認します。
+    maximum_centerline_raw_difference_deg: 2.0
+
+    # レイ候補と線分候補の角度差の上限。大きすぎる不一致は救済しません。
+    maximum_line_ray_difference_deg: 6.0
+
+    # プロファイルの針先・カウンターウェイト長整合を採用条件にします。
+    require_profile_tip_tail_length_match: true

@@ -1,0 +1,539 @@
+big_pressure_meter:
+  profile_version: 9.16.1
+  meter_id: big_pressure_meter
+  source_image: InputImages/IMG_0148.jpg
+  type: dial gauge
+  unit: MPa
+  min_value: 0.0
+  max_value: 0.6
+  center_point:
+  - 1360
+  - 1362
+  min_angle: -153.406
+  mid_angle: 90.731
+  max_angle: -27.464
+  detection:
+    detector: YOLO
+    class_name: clock
+    confidence: 0.9541
+    bbox_xyxy:
+    - 775
+    - 198
+    - 3393
+    - 2837
+    raw_bbox_xyxy:
+    - 785
+    - 208
+    - 3383
+    - 2827
+    expanded_bbox_xyxy:
+    - 775
+    - 198
+    - 3393
+    - 2837
+    crop_padding_px: 10
+    crop_width_px: 2618
+    crop_height_px: 2639
+  sample_crop_model:
+    source: yolo_crop
+    crop_padding_px: 10
+    crop_width_px: 2618
+    crop_height_px: 2639
+    crop_short_side_px: 2618
+    crop_long_side_px: 2639
+    raw_bbox_xyxy:
+    - 785
+    - 208
+    - 3383
+    - 2827
+    expanded_bbox_xyxy:
+    - 775
+    - 198
+    - 3393
+    - 2837
+    source_image_width_px: 4032
+    source_image_height_px: 3024
+    notes: This crop geometry is used by meter_read to estimate current outer-circle
+      scale from YOLO crop size ratio.
+  sample_image_requirements:
+    high_resolution_close_front: true
+    single_meter_only: true
+    same_center_assumption: 'relaxed: hub, dial and bezel may have perspective-induced
+      center offsets; centers are stored separately'
+  scale:
+    direction: clockwise
+    major_ticks:
+    - 0.0
+    - 0.1
+    - 0.2
+    - 0.3
+    - 0.4
+    - 0.5
+    - 0.6
+    major_step: 0.1
+  geometry:
+    center_xy_in_crop:
+    - 1360
+    - 1362
+    radius_px: 994
+    auto_center_xy_in_crop:
+    - 1302
+    - 1338
+    auto_radius_px: 994
+    dial_shape: circular_3point
+    perspective_correction: false
+    outer_pair_preferred_reference: dial_face_circle
+    outer_pair_selection_source: human_selected_dial_and_bezel_circles
+  component_ratio_model:
+    source: human_3point_dial_bezel_and_component_points
+    reliability: highest
+    ratio_to_hub_radius:
+      hub_radius: 1.0
+      dial_radius: 11.295455
+      bezel_radius: 14.715909
+      needle_tip_length: 9.962455
+      needle_tail_length: 6.229926
+    bezel_to_dial_radius_ratio: 1.302817
+    dial_to_bezel_radius_ratio: 0.767568
+    hub_to_dial_radius_ratio: 0.088531
+    needle_tip_to_dial_radius_ratio: 0.881988
+    needle_tail_to_dial_radius_ratio: 0.551543
+    center_offsets:
+      dial_center_from_hub_px:
+      - -58
+      - -24
+      bezel_center_from_hub_px:
+      - -48
+      - -42
+      dial_center_from_hub_over_dial_radius:
+      - -0.05835
+      - -0.024145
+      bezel_center_from_hub_over_bezel_radius:
+      - -0.037066
+      - -0.032432
+      dial_bezel_center_distance_over_dial_radius: 0.020716
+  outer_color_model:
+    source: human_clicked_dial_and_bezel_color
+    dial_face_profile: &id011
+      sample_points:
+      - - 918
+        - 1890
+      - - 1528
+        - 1942
+      - - 1148
+        - 758
+      sample_radius_px: 8
+      color_name: white_or_light_gray
+      mask_mode: hsv
+      rgb_mean:
+        r: 230.6
+        g: 226.6
+        b: 215.6
+      rgb_std:
+        r: 0.91
+        g: 0.91
+        b: 0.91
+      bgr_mean:
+        b: 215.6
+        g: 226.6
+        r: 230.6
+      gray_mean: 226.6
+      gray_std: 0.91
+      gray_lower: 192
+      gray_upper: 255
+      hsv_mean:
+        h: 22.0
+        s: 16.9
+        v: 230.6
+      hsv_std:
+        h: 0.0
+        s: 0.31
+        v: 0.91
+      hsv_lower:
+      - 10
+      - 0
+      - 196
+      hsv_upper:
+      - 34
+      - 52
+      - 255
+    bezel_case_profile: &id012
+      sample_points:
+      - - 508
+        - 448
+      - - 348
+        - 855
+      - - 185
+        - 1560
+      sample_radius_px: 8
+      color_name: black_or_dark_gray
+      mask_mode: dark
+      rgb_mean:
+        r: 27.02
+        g: 25.61
+        b: 21.89
+      rgb_std:
+        r: 13.22
+        g: 12.24
+        b: 11.57
+      bgr_mean:
+        b: 21.89
+        g: 25.61
+        r: 27.02
+      gray_mean: 25.56
+      gray_std: 12.27
+      gray_lower: 0
+      gray_upper: 62
+      hsv_mean:
+        h: 24.39
+        s: 59.93
+        v: 27.13
+      hsv_std:
+        h: 7.12
+        s: 46.38
+        v: 13.13
+      hsv_lower:
+      - 3
+      - 0
+      - 0
+      hsv_upper:
+      - 46
+      - 199
+      - 67
+    rgb_distance: 345.493
+    gray_difference: 201.04
+    colors_similar: false
+    preferred_outer_reference: dial_face_circle
+    notes: If colors_similar is false, reader prefers a circle with dial color inside
+      and bezel/case color outside. If true, reader may use bezel/case circle because
+      color separation is unreliable.
+  outer_circle_model:
+    source: human_selected_dial_and_bezel_circles
+    dial_face_circle:
+      center_xy_in_crop:
+      - 1302
+      - 1338
+      radius_px: 994
+      candidate_source: profile_dial_estimate
+      features:
+        radius_ratio_to_profile: 1.0
+        radius_error_px: 0.0
+        distance_to_profile_center_px: 0.0
+        edge_support: 0.11111
+        valid_fraction: 1.0
+    bezel_case_circle:
+      center_xy_in_crop:
+      - 1322
+      - 1337
+      radius_px: 1320
+      candidate_source: hough_outer
+      features:
+        radius_ratio_to_profile: 1.32797
+        radius_error_px: 326.0
+        distance_to_profile_center_px: 20.025
+        edge_support: 0.39062
+        valid_fraction: 0.88889
+    bezel_to_dial_radius_ratio: 1.327968
+    dial_to_bezel_radius_ratio: 0.75303
+    center_offset_px: 20.025
+    center_offset_over_dial_radius: 0.020146
+    colors_similar: false
+    preferred_outer_reference: dial_face_circle
+    notes: Reader should detect both dial-face and bezel/case circles, classify candidates
+      by radius ratio and color, and use preferred_outer_reference for scale.
+  hub:
+    center_xy_in_crop:
+    - 1360
+    - 1362
+    edge_xy_in_crop:
+    - 1448
+    - 1362
+    radius_px: 88
+    diameter_px: 176
+    source: human_selected_candidate
+    search_radius_scale: 1.8
+    min_radius_scale: 0.65
+    max_radius_scale: 1.45
+    selection_source: profile_guided_estimate
+  needle_shape:
+    source: human_confirmed
+    reference_center_xy_in_crop:
+    - 1360
+    - 1362
+    reference_outer_radius_px: 994
+    tip_xy_in_crop:
+    - 1790
+    - 598
+    tail_xy_in_crop:
+    - 1088
+    - 1838
+    tip_vector_from_center:
+      dx: 430
+      dy: -764
+    tail_vector_from_center:
+      dx: -272
+      dy: 476
+    tip_length_px: 876.7
+    tail_length_px: 548.23
+    full_length_px: 1424.93
+    tip_tail_length_ratio: 1.5991
+    tip_length_ratio: 0.882
+    tail_length_ratio: 0.5515
+    full_length_ratio: 1.4335
+    axis_angle_deg: 60.628
+    tail_angle_deg: -119.745
+    tip_to_tail_angle_diff_deg: 179.627
+    width_profile:
+      base_px: 63.0
+      mid_px: 33.0
+      tip_px: 19.0
+    width_ratio:
+      base: 0.0634
+      mid: 0.0332
+      tip: 0.0191
+    taper_direction: tip_is_thinner
+    tail_is_wider: true
+    read_time_note: Use length/width/taper as a shape template. Do not reuse the reference
+      angle as the current needle angle.
+  center:
+    sample_points: &id001
+    - - 1332
+      - 1342
+    - - 1422
+      - 1348
+    sample_radius_px: 8
+    color_name: gray
+    mask_mode: hsv
+    rgb_mean: &id002
+      r: 151.96
+      g: 148.42
+      b: 143.11
+    rgb_std: &id003
+      r: 5.41
+      g: 5.49
+      b: 5.6
+    bgr_mean: &id004
+      b: 143.11
+      g: 148.42
+      r: 151.96
+    gray_mean: 148.78
+    gray_std: 5.46
+    gray_lower: 114
+    gray_upper: 184
+    hsv_mean: &id005
+      h: 18.04
+      s: 14.9
+      v: 151.96
+    hsv_std: &id006
+      h: 4.81
+      s: 1.94
+      v: 5.41
+    hsv_lower: &id007
+    - 4
+    - 0
+    - 117
+    hsv_upper: &id008
+    - 32
+    - 50
+    - 187
+    mode: dual_or
+    primary: &id009
+      sample_points:
+      - - 1332
+        - 1342
+      sample_radius_px: 8
+      color_name: gray
+      mask_mode: hsv
+      rgb_mean:
+        r: 151.73
+        g: 149.29
+        b: 142.85
+      rgb_std:
+        r: 3.69
+        g: 4.0
+        b: 4.35
+      bgr_mean:
+        b: 142.85
+        g: 149.29
+        r: 151.73
+      gray_mean: 149.2
+      gray_std: 3.95
+      gray_lower: 114
+      gray_upper: 184
+      hsv_mean:
+        h: 22.03
+        s: 14.98
+        v: 151.73
+      hsv_std:
+        h: 3.04
+        s: 2.6
+        v: 3.69
+      hsv_lower:
+      - 10
+      - 0
+      - 117
+      hsv_upper:
+      - 34
+      - 50
+      - 187
+    secondary: &id010
+      sample_points:
+      - - 1422
+        - 1348
+      sample_radius_px: 8
+      color_name: gray
+      mask_mode: hsv
+      rgb_mean:
+        r: 152.19
+        g: 147.54
+        b: 143.37
+      rgb_std:
+        r: 6.69
+        g: 6.54
+        b: 6.61
+      bgr_mean:
+        b: 143.37
+        g: 147.54
+        r: 152.19
+      gray_mean: 148.37
+      gray_std: 6.61
+      gray_lower: 113
+      gray_upper: 183
+      hsv_mean:
+        h: 14.06
+        s: 14.82
+        v: 152.19
+      hsv_std:
+        h: 2.29
+        s: 0.88
+        v: 6.69
+      hsv_lower:
+      - 2
+      - 0
+      - 117
+      hsv_upper:
+      - 26
+      - 50
+      - 187
+    notes: primary is flat hub center color; secondary is sloped/outer hub color
+    min_radius_ratio: 0.02
+    max_radius_ratio: 0.15
+  hub_color:
+    sample_points: *id001
+    sample_radius_px: 8
+    color_name: gray
+    mask_mode: hsv
+    rgb_mean: *id002
+    rgb_std: *id003
+    bgr_mean: *id004
+    gray_mean: 148.78
+    gray_std: 5.46
+    gray_lower: 114
+    gray_upper: 184
+    hsv_mean: *id005
+    hsv_std: *id006
+    hsv_lower: *id007
+    hsv_upper: *id008
+    mode: dual_or
+    primary: *id009
+    secondary: *id010
+    notes: primary is flat hub center color; secondary is sloped/outer hub color
+  dial_face_color: *id011
+  bezel_case_color: *id012
+  needle:
+    sample_points:
+    - - 1190
+      - 1602
+    - - 1085
+      - 1780
+    sample_radius_px: 8
+    color_name: black_or_dark_gray
+    mask_mode: dark
+    rgb_mean:
+      r: 57.84
+      g: 56.52
+      b: 51.68
+    rgb_std:
+      r: 11.56
+      g: 10.33
+      b: 10.23
+    bgr_mean:
+      b: 51.68
+      g: 56.52
+      r: 57.84
+    gray_mean: 56.18
+    gray_std: 10.57
+    gray_lower: 21
+    gray_upper: 91
+    hsv_mean:
+      h: 25.59
+      s: 28.55
+      v: 58.18
+    hsv_std:
+      h: 7.68
+      s: 4.2
+      v: 11.29
+    hsv_lower:
+    - 3
+    - 0
+    - 23
+    hsv_upper:
+    - 49
+    - 64
+    - 93
+    dark_gray_lower: 20
+    dark_gray_upper: 170
+    outer_radius_ratio: 0.43
+    start_radius_scale: 1.1
+    min_length_scale: 2.0
+    angle_step: 0.5
+    max_gap: 8
+    method: ray_cast_color_profile
+  ai_candidate:
+    center_confidence: 0.8
+    radius_px: 890
+    hub_radius_px: 48
+    ocr:
+      available: false
+      numbers: []
+      unit_candidates: []
+  reading:
+    confidence_threshold: 0.7
+    value_formula: clockwise_linear_angle_interpolation
+  review:
+    status: confirmed
+    confirmed_by_human: true
+    notes: Generated by meter_profile_assistant_v9_16_1_dual_hub_color_index_fix.
+      Dial/bezel circles use independent 3-point centers and component ratios are
+      highest reliability information.
+    manual_scale_note: Scale generated from min_value, max_value, and major_step;
+      individual comma-separated major_ticks were not required.
+    outer_pair_selection_note: Dial-face and bezel/case outer circles were selected
+      by user and saved as outer_circle_model.
+    hub_selection_note: Hub candidate selected by user and saved as hub_selection_model.
+  hub_selection_model:
+    source: human_selected_candidate
+    selected_candidate_index: 1
+    selected_candidate_type: profile_guided_estimate
+    selected_center_xy_in_crop:
+    - 1360
+    - 1362
+    selected_radius_px: 88
+    selection_features:
+      radius_ratio: 1.0
+      hub_radius_over_outer_radius: 0.08853
+      distance_to_profile_center_px: 0.0
+      distance_to_profile_center_over_outer_radius: 0.0
+      offset_from_profile_center_ratio:
+        dx_over_outer_radius: 0.0
+        dy_over_outer_radius: 0.0
+      candidate_source: profile_guided_estimate
+    scoring_weights:
+      source_match_bonus: 18.0
+      preferred_radius_ratio_weight: 45.0
+      preferred_radius_over_outer_weight: 220.0
+      preferred_offset_weight: 320.0
+      needle_line_weight_scale: 0.45
+      profile_distance_weight_scale: 0.85
+    notes: Created by hub candidate selection UI. Candidate features are used to weight
+      future hub selection.

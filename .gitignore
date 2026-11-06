@@ -1,1 +1,20 @@
 *.pt
+
+# Python environment and cache
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Runtime images and logs
+InputImages/
+OutputImages/
+Logs/
+
+# Model weights
+*.pt
+*.pth
+*.onnx
+
+# Windows download metadata
+*:Zone.Identifier
